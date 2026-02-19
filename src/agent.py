@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, HttpUrl, ValidationError
 from a2a.server.tasks import TaskUpdater
-from a2a.types import Message, TaskState, Part, TextPart, DataPart, FilePart, FileWithBytes, Role
+from a2a.types import Message, TaskState, TaskArtifactUpdateEvent, TaskStatusUpdateEvent, Part, TextPart, DataPart, FilePart, FileWithBytes, Role
 from a2a.utils import get_message_text, new_agent_text_message
 
 from messenger import Messenger
@@ -202,32 +202,28 @@ class Agent:
             # Send message and process responses
             async for event in client.send_message(initial_msg):
                 match event:
-                    case Message() as msg:
-                        text = get_message_text(msg)
+                    case (task, TaskStatusUpdateEvent() as update) if (msg := update.status.message) and "validate" in get_message_text(msg):
+                        validation_result = await self.handle_validation_request(msg, competition)
+                        response_msg = Message(
+                            kind="message",
+                            role=Role.user,
+                            parts=[Part(root=TextPart(text=validation_result))],
+                            message_id=uuid4().hex,
+                            context_id=task.context_id,
+                        )
+                        async for _ in client.send_message(response_msg):
+                            pass  # Wait for ack
 
-                        # Check if this is a validation request
-                        if "validate" in text.lower():
-                            validation_result = await self.handle_validation_request(msg, competition)
-                            # Send validation response back
-                            response_msg = Message(
-                                kind="message",
-                                role=Role.agent,
-                                parts=[Part(root=TextPart(text=validation_result))],
-                                message_id=uuid4().hex,
-                                context_id=msg.context_id,
-                            )
-                            async for _ in client.send_message(response_msg):
-                                pass  # Wait for ack
+                    case (task, TaskArtifactUpdateEvent()):
+                        for artifact in task.artifacts or []:
+                            for part in artifact.parts:
+                                if isinstance(part.root, FilePart):
+                                    file_data = part.root.file
+                                    if isinstance(file_data, FileWithBytes):
+                                        submission_csv = base64.b64decode(file_data.bytes)
 
-                    case (task, _):
-                        # Handle task updates from agent
-                        if task.artifacts:
-                            for artifact in task.artifacts:
-                                for part in artifact.parts:
-                                    if isinstance(part.root, FilePart):
-                                        file_data = part.root.file
-                                        if isinstance(file_data, FileWithBytes):
-                                            submission_csv = base64.b64decode(file_data.bytes)
+                    case _:
+                        pass
 
         if not submission_csv:
             raise ValueError("Agent did not submit a valid submission.csv")

@@ -1,16 +1,20 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm
+FROM mlebench-env
 
-RUN adduser agent
-USER agent
-WORKDIR /home/agent
+RUN conda create -n green python=3.11 -y
+COPY requirements.txt /tmp/green-requirements.txt
+RUN conda run -n green pip install -r /tmp/green-requirements.txt && \
+    conda run -n green pip install -e /mlebench
 
-COPY pyproject.toml uv.lock README.md ./
-COPY src src
+RUN mkdir cache && \
+    chown nonroot cache
 
-RUN \
-    --mount=type=cache,target=/home/agent/.cache/uv,uid=1000 \
-    uv sync --locked
+COPY src /home/green/src
 
-ENTRYPOINT ["uv", "run", "src/server.py"]
+USER nonroot
+
+RUN --mount=type=secret,id=kaggle_json,target=/home/nonroot/.config/kaggle/kaggle.json,uid=1000,gid=1000 \
+    conda run -n green mlebench prepare -c spaceship-titanic
+
+ENTRYPOINT ["/opt/conda/envs/green/bin/python", "/home/green/src/server.py"]
 CMD ["--host", "0.0.0.0"]
 EXPOSE 9009
