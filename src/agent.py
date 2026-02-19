@@ -8,12 +8,15 @@ from uuid import uuid4
 
 from pydantic import BaseModel, HttpUrl, ValidationError
 from a2a.server.tasks import TaskUpdater
-from a2a.types import Message, TaskState, TaskArtifactUpdateEvent, TaskStatusUpdateEvent, Part, TextPart, DataPart, FilePart, FileWithBytes, Role
+from a2a.types import (DataPart, FilePart, FileWithBytes, Message, Part, Role,
+                       TaskArtifactUpdateEvent, TaskState,
+                       TaskStatusUpdateEvent, TextPart)
 from a2a.utils import get_message_text, new_agent_text_message
+from mlebench.data import download_and_prepare_dataset
+from mlebench.grade import grade_csv, validate_submission
+from mlebench.registry import Competition, Registry
 
 from messenger import Messenger
-from mlebench.registry import Registry, Competition
-from mlebench.grade import grade_csv, validate_submission
 
 
 class EvalRequest(BaseModel):
@@ -108,6 +111,13 @@ class Agent:
             competition = self.registry.get_competition(competition_id)
         except Exception as e:
             await updater.failed(new_agent_text_message(f"Failed to load competition: {e}"))
+            return
+
+        # Prepare competition data
+        try:
+            download_and_prepare_dataset(competition)
+        except Exception as e:
+            await updater.failed(new_agent_text_message(f"Failed to prepare competition data: {e}"))
             return
 
         # Create competition data tar
