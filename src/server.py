@@ -60,6 +60,7 @@ def main():
     server = A2AStarletteApplication(
         agent_card=agent_card,
         http_handler=request_handler,
+        max_content_length=None
     )
     uvicorn.run(server.build(), host=args.host, port=args.port)
 
