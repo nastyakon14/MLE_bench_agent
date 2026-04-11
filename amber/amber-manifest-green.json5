@@ -1,7 +1,7 @@
 {
   manifest_version: "0.1.0",
   program: {
-    image: "ghcr.io/nastyakon14/mle_bench_agent:latest"
+    image: "ghcr.io/nastyakon14/mle_bench_agent:latest",
     entrypoint: [
       "python",
       "/app/src/server.py",
