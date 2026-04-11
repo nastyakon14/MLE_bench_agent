@@ -55,11 +55,16 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
 
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
       - name: Install test dependencies
-        run: uv sync --extra test
+        run: uv sync --python 3.13 --extra test
 
       - name: Run tests
-        run: uv run pytest -v --agent-url http://localhost:9009
+        run: uv run --python 3.13 pytest -v --agent-url http://localhost:9009
 
       - name: Stop container and show logs
         if: always()
