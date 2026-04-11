@@ -1,32 +1,35 @@
 {
   manifest_version: "0.1.0",
   program: {
-    image: "ghcr.io/rdi-foundation/mle-bench-green:v1.0",
+    image: "ghcr.io/nastyakon/mle_bench_purple_agent:latest",
     entrypoint: [
-      "/opt/conda/envs/green/bin/python",
-      "/home/green/src/server.py",
+      "python",
+      "/app/src/server.py",
       "--host",
       "0.0.0.0",
       "--port",
-      "8081"
+      "9009"
     ],
     env: {
-      PROXY_URL: "${slots.proxy.url}",
       LOG_LEVEL: "INFO",
+      OPENAI_API_KEY: "${config.openai_api_key}",
+      OPENAI_MODEL: "${config.openai_model}",
       KAGGLE_USERNAME: "${config.kaggle_username}",
       KAGGLE_KEY: "${config.kaggle_key}"
     },
     network: {
       endpoints: [
-        { name: "endpoint", port: 8081 }
+        { name: "endpoint", port: 9009 }
       ]
     }
   },
   config_schema: {
     type: "object",
     properties: {
+      openai_api_key: { type: "string", secret: true },
+      openai_model: { type: "string", default: "gpt-5.1" },
       kaggle_username: { type: "string", secret: true },
-      kaggle_key: { type: "string", secret: true },
+      kaggle_key: { type: "string", secret: true }
     },
     required: ["kaggle_username", "kaggle_key"],
     additionalProperties: false
@@ -42,7 +45,7 @@
   },
   metadata: {
     assessment_config: {
-      "competition_id": "spaceship-titanic",
+      "competition_id": "spaceship-titanic"
     },
     participant_roles: ["agent"]
   }

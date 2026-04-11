@@ -1,32 +1,27 @@
+from typing import Any
+
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
 from a2a.types import (
-    Task,
-    TaskState,
-    UnsupportedOperationError,
-    InvalidRequestError,
+    TaskState, UnsupportedOperationError, InvalidRequestError,
 )
+from a2a.utils import new_agent_text_message, new_task
 from a2a.utils.errors import ServerError
-from a2a.utils import (
-    new_agent_text_message,
-    new_task,
-)
-
-from agent import Agent
-
 
 TERMINAL_STATES = {
-    TaskState.completed,
-    TaskState.canceled,
-    TaskState.failed,
-    TaskState.rejected
+    TaskState.completed, TaskState.canceled, TaskState.failed, TaskState.rejected,
 }
 
-
 class Executor(AgentExecutor):
-    def __init__(self):
-        self.agents: dict[str, Agent] = {} # context_id to agent instance
+    def __init__(
+        self,
+        openai_api_key: str | None = None,
+        openai_model: str | None = None,
+    ):
+        self.agents: dict[str, Any] = {}  # context_id -> Agent instance
+        self.openai_api_key = openai_api_key
+        self.openai_model = openai_model
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         msg = context.message
@@ -35,7 +30,11 @@ class Executor(AgentExecutor):
 
         task = context.current_task
         if task and task.status.state in TERMINAL_STATES:
-            raise ServerError(error=InvalidRequestError(message=f"Task {task.id} already processed (state: {task.status.state})"))
+            raise ServerError(
+                error=InvalidRequestError(
+                    message=f"Task {task.id} already processed (state: {task.status.state})"
+                )
+            )
 
         if not task:
             task = new_task(msg)
@@ -44,11 +43,14 @@ class Executor(AgentExecutor):
         context_id = task.context_id
         agent = self.agents.get(context_id)
         if not agent:
-            agent = Agent()
+            from agent import Agent
+            agent = Agent(
+                openai_api_key=self.openai_api_key,
+                openai_model=self.openai_model,
+            )
             self.agents[context_id] = agent
 
         updater = TaskUpdater(event_queue, task.id, context_id)
-
         await updater.start_work()
         try:
             await agent.run(msg, updater)
@@ -56,7 +58,13 @@ class Executor(AgentExecutor):
                 await updater.complete()
         except Exception as e:
             print(f"Task failed with agent error: {e}")
-            await updater.failed(new_agent_text_message(f"Agent error: {e}", context_id=context_id, task_id=task.id))
+            await updater.failed(
+                new_agent_text_message(
+                    f"Agent error: {e}",
+                    context_id=context_id,
+                    task_id=task.id,
+                )
+            )
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         raise ServerError(error=UnsupportedOperationError())

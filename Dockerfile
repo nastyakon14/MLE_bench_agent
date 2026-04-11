@@ -1,16 +1,16 @@
-FROM mlebench-env
+FROM python:3.13-slim
 
-RUN conda create -n green python=3.11 -y
-COPY requirements.txt /tmp/green-requirements.txt
-RUN conda run -n green pip install -r /tmp/green-requirements.txt && \
-    conda run -n green pip install -e /mlebench
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-RUN mkdir cache && \
-    chown nonroot cache
+WORKDIR /app
 
-COPY src /home/green/src
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-USER nonroot
-ENTRYPOINT ["/opt/conda/envs/green/bin/python", "/home/green/src/server.py"]
-CMD ["--host", "0.0.0.0"]
+COPY src /app/src
+
+ENTRYPOINT ["python", "/app/src/server.py"]
+CMD ["--host", "0.0.0.0", "--port", "9009"]
+
 EXPOSE 9009
