@@ -1,5 +1,8 @@
 name: Test and Publish Agent
 
+env:
+  GHCR_IMAGE: ghcr.io/nastyakon/mle_bench_purple_agent
+
 on:
   pull_request:
   push:
@@ -27,7 +30,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ env.GHCR_IMAGE }}
           tags: |
             type=ref,event=pr
             type=semver,pattern={{version}}
@@ -83,7 +86,7 @@ jobs:
 
       - name: Push Docker image
         if: success() && github.event_name != 'pull_request'
-        run: docker push --all-tags ghcr.io/${GITHUB_REPOSITORY,,}
+        run: docker push --all-tags ${{ env.GHCR_IMAGE }}
 
       - name: Output image digest
         if: success() && github.event_name != 'pull_request'
