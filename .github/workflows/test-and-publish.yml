@@ -1,8 +1,5 @@
 name: Test and Publish Agent
 
-env:
-  GHCR_IMAGE: ghcr.io/nastyakon/mle_bench_purple_agent
-
 on:
   pull_request:
   push:
@@ -30,7 +27,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.GHCR_IMAGE }}
+          images: ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=pr
             type=semver,pattern={{version}}
@@ -58,16 +55,11 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
       - name: Install test dependencies
-        run: uv sync --python 3.13 --extra test
+        run: uv sync --extra test
 
       - name: Run tests
-        run: uv run --python 3.13 pytest -v --agent-url http://localhost:9009
+        run: uv run pytest -v --agent-url http://localhost:9009
 
       - name: Stop container and show logs
         if: always()
@@ -86,7 +78,7 @@ jobs:
 
       - name: Push Docker image
         if: success() && github.event_name != 'pull_request'
-        run: docker push --all-tags ${{ env.GHCR_IMAGE }}
+        run: docker push --all-tags ghcr.io/${GITHUB_REPOSITORY,,}
 
       - name: Output image digest
         if: success() && github.event_name != 'pull_request'
